@@ -35,7 +35,6 @@ public struct AppearanceThemeSettingsSection: View {
             Text("appearance_avatar_shape_description", bundle: FlareAppleUILocalization.bundle)
         }
 
-        #if os(iOS)
         VStack(alignment: .leading) {
             Text("appearance_font_size_diff", bundle: FlareAppleUILocalization.bundle)
             Slider(value: Binding(get: {
@@ -50,7 +49,6 @@ public struct AppearanceThemeSettingsSection: View {
                 Image(systemName: "textformat.size.larger")
             }
         }
-        #endif
     }
 }
 
