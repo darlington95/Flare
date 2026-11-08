@@ -24,6 +24,7 @@ public struct RichText: View {
     @Environment(\.openURL) private var openURL
     @Environment(\.displayScale) private var displayScale
     @Environment(\.shareImageLoading) private var shareImageLoading
+    @Environment(\.globalAppearance) private var globalAppearance
     @State private var shareImageID = UUID()
 
     public init(text: UiRichText) {
@@ -36,6 +37,22 @@ public struct RichText: View {
         self.text = text
         self.previewLineLimit = previewLineLimit.map { max($0, 1) }
         self.previewLineHeight = previewLineHeight
+    }
+
+    /// Body font adjusted by the user's `fontSizeDiff` appearance setting.
+    ///
+    /// The shared path renders body text through `Text(AttributedString)`, whose fonts are baked at a
+    /// fixed `NSFont` size by `PlatformTextRenderer` and cached in `platformText`, so the
+    /// `.dynamicTypeSize` that `FlareTheme` sets has no effect on the unstyled runs. On macOS there
+    /// is no UIKit `preferredContentSizeCategory` equivalent (unlike `RichTextUIView` on iOS), so the
+    /// diff is applied explicitly here to make the timeline text respond to the setting. On iOS the
+    /// main timeline already scales via `RichTextUIView`, so this stays a no-op (`.body`).
+    private var scaledFont: Font {
+        #if os(macOS)
+        Font.system(size: RichTextFontScaling.bodyFontSize(fontSizeDiff: globalAppearance.fontSizeDiff))
+        #else
+        .body
+        #endif
     }
 
     public var body: some View {
@@ -86,6 +103,7 @@ public struct RichText: View {
                 }
             }
         }
+        .font(scaledFont)
         .frame(maxWidth: previewLineLimit == nil ? nil : .infinity, alignment: .leading)
         .background(alignment: .topLeading) {
             if let previewLineLimit {
@@ -377,3 +395,20 @@ private extension NSImage {
     }
 }
 #endif
+
+#if os(macOS)
+/// Resolves the body font point size for the user's `fontSizeDiff` appearance setting on macOS.
+///
+/// The shared `RichText`/`CollapsibleRichText` path bakes fonts at a fixed `NSFont` size, so the
+/// `.dynamicTypeSize` that `FlareTheme` sets does not reach the unstyled text runs. Applying the
+/// diff explicitly (mirroring `RichTextUIView`'s `preferredContentSizeCategory` on iOS) makes the
+/// timeline text respond to the setting. The result is clamped so the text never collapses.
+public enum RichTextFontScaling {
+    public static var minimumFontSize: CGFloat { 9 }
+
+    public static func bodyFontSize(fontSizeDiff: Float) -> CGFloat {
+        max(minimumFontSize, NSFont.systemFontSize + CGFloat(fontSizeDiff))
+    }
+}
+#endif
+
